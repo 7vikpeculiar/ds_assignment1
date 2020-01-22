@@ -8,25 +8,47 @@
 
 using namespace std;
 
+template <typename T>
+void pop_front(std::vector<T> &v)
+{
+    if (v.size() > 0)
+    {
+        v.erase(v.begin());
+    }
+}
+
 struct heapItem
 {
     int value;
     int pid;
 
-    bool operator<(heapItem const &obj)
-    {
-        heapItem res;
-        if (value <= obj.value)
-        {
-            return true;
-        }
-        return false;
-    }
+    // bool operator<(heapItem const &obj)
+    // {
+    //     heapItem res;
+    //     if (value <= obj.value)
+    //     {
+    //         return true;
+    //     }
+    //     return false;
+    // }
+    heapItem(int value, int pid) : value(value), pid(pid) {}
 };
 
 int cmpfunc(const void *a, const void *b)
 {
     return (*(int *)a - *(int *)b);
+}
+
+// struct compareHeap
+// { // defining the comparemarks structure
+//     bool operator()(heapItem const &p1, heapItem const &p2)
+//     {
+//         return p1.value < p2.value;
+//     }
+// };
+bool operator>(const heapItem &lhs, const heapItem &rhs)
+{
+    return lhs.value > rhs.value;
 }
 
 int main(int argc, char **argv)
@@ -77,53 +99,97 @@ int main(int argc, char **argv)
 
     if (rank != 0)
     {
-        MPI_Send(&A, array_size, MPI_INT, rank, 2, MPI_COMM_WORLD);
+        MPI_Send(&A, array_size, MPI_INT, 0, 2, MPI_COMM_WORLD);
         cout << "Sent";
     }
-    
-    // MPI_Barrier(MPI_COMM_WORLD);
-    // if(rank == 0)
-    // {
-    //     int B[10];
-    //     for (int procIde = 1; procIde < numprocs; procIde++)
-    //     {
-    //         cout << "ProcId:: " << procIde << endl;
-    //         cout << "PID :: " << procIde << " ASZ:: " << array_size <<  endl;
-    //         cout << "Blahhh1" << endl;
-    //         // MPI_Recv( &partial_sum, 1, MPI_LONG, MPI_ANY_SOURCE,return_data_tag, MPI_COMM_WORLD, &status);
-    //         // MPI_Recv(&A[procIde*array_size], array_size, MPI_INT, MPI_ANY_SOURCE, 2, MPI_COMM_WORLD, &status);
-    //         MPI_Recv(B, array_size, MPI_INT, MPI_ANY_SOURCE, 2, MPI_COMM_WORLD, &status);
-    //         cout << "Blahhh2" << endl;
-    //         {
-    //         for(int i=0;i<array_size;i++)
-    //             A[procIde*array_size + i] = B[i];
-    //         }
-    //         // cout << "ProcId:: " << procId << endl;
-    //     }
-    //     cout << "Blahhh" << endl;
-    // }
 
-    // if (rank == 0)
-    // {
-    //     vector<vector<int>> sortedArray(numprocs);
-    //     for(int i=0; i < numprocs ; i++)
-    //     {
-    //         sortedArray[i] = vector<int>(array_size); 
-    //         for(int j=0; j < array_size; j++)
-    //         {
-    //             sortedArray[i][j] = numprocs*array_size + j;
-    //         }
-    //     }
-    //     //
-    //     for(int i=0; i < numprocs ; i++)
-    //     {
-    //         for(int j=0; j < array_size; j++)
-    //         {
-    //             cout << sortedArray[i][j] << " ";                
-    //         }
-    //         cout << endl;
-    //     }
-    // }
+    // MPI_Barrier(MPI_COMM_WORLD);
+    if (rank == 0)
+    {
+        int B[100];
+        vector<vector<int>> sortedArray(numprocs);
+        vector<int> tmp;
+        for (int i = 0; i < array_size; i++)
+        {
+            tmp.push_back(A[i]);
+        }
+        sortedArray[0] = tmp;
+
+        for (int procIde = 1; procIde < numprocs; procIde++)
+        {
+            MPI_Recv(&B, array_size, MPI_INT, MPI_ANY_SOURCE, 2, MPI_COMM_WORLD, &status);
+            int source_rank = status.MPI_SOURCE;
+            vector<int> tmp;
+            for (int i = 0; i < array_size; i++)
+            {
+                tmp.push_back(B[i]);
+            }
+            sortedArray[source_rank] = tmp;
+        }
+
+        // Print Matrix
+        for (auto vec : sortedArray)
+        {
+            for (auto x : vec)
+                std::cout << x << " , ";
+            std::cout << std::endl;
+        }
+
+        priority_queue<heapItem, vector<heapItem>, greater<heapItem>> heap;
+        for (int i = 0; i < numprocs; i++)
+        {
+            heap.push(heapItem(sortedArray[i][0], i));
+            pop_front(sortedArray[i]);
+            // if (sortedArray[i].size() != 0)
+            // {                                                 //check if there any elements in the vector array
+            //     sortedArray[i].erase(sortedArray[i].begin()); //erase the firs element
+            // }
+        }
+
+        // cout << "==================================" << endl;
+        // for (auto vec : sortedArray)
+        // {
+        //     for (auto x : vec)
+        //         std::cout << x << " , ";
+        //     std::cout << std::endl;
+        // }
+        // cout << "==================================" << endl;
+
+        int val;
+        while (!heap.empty())
+        {
+            heapItem temp = heap.top();
+            cout << "Popped :: " << temp.value << " " << temp.pid << endl;
+            heap.pop();
+
+            if (sortedArray[temp.pid].size() != 0)
+            {
+                val = sortedArray[temp.pid][0];
+                pop_front(sortedArray[temp.pid]);
+                // cout << "Val :: " << val << " " << temp.pid << endl;
+                // cout << "==================================" << endl;
+                // for (auto vec : sortedArray)
+                // {
+                //     for (auto x : vec)
+                //         std::cout << x << " , ";
+                //     std::cout << std::endl;
+                // }
+                // cout << "==================================" << endl;
+
+                heap.push(heapItem(val, temp.pid));
+            }
+        }
+
+        // cout << "==================================" << endl;
+        // for (auto vec : sortedArray)
+        // {
+        //     for (auto x : vec)
+        //         std::cout << x << " , ";
+        //     std::cout << std::endl;
+        // }
+        // cout << "==================================" << endl;
+
+    }
 
     MPI_Barrier(MPI_COMM_WORLD);
     double elapsedTime = MPI_Wtime() - tbeg;
