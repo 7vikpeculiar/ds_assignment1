@@ -8,12 +8,13 @@
 
 using namespace std;
 
-int minNode(int nporcs, int * allVertices)
+int minNode(int nporcs, int *allVertices)
 {
-    int vertex = INT_MAX; int dist = INT_MAX;
-    for(int i=0; i < nporcs; i++)
+    int vertex = INT_MAX;
+    int dist = INT_MAX;
+    for (int i = 0; i < nporcs; i++)
     {
-        if(allVertices[i] < dist)
+        if (allVertices[i] < dist)
         {
             dist = allVertices[i];
             vertex = i;
@@ -22,6 +23,24 @@ int minNode(int nporcs, int * allVertices)
     return vertex;
 }
 
+int minDistance(int *dist, bool *visited)
+{
+    int min = INT_MAX, min_index;
+
+    for (int v = 0; v < V; v++)
+        if (visited[v] == false && dist[v] <= min)
+            min = dist[v], min_index = v;
+
+    return min_index;
+}
+
+int getMinVertex(int ** A, int col_size, int minVertex)
+{
+    for(int i=0; i < col_size; i++)
+    {
+        A[i][minVertex]
+    }
+}
 int main(int argc, char **argv)
 {
 
@@ -37,6 +56,7 @@ int main(int argc, char **argv)
     int m;
     int col_size;
     int src_vertex;
+    int minVertex;
 
     MPI_Init(&argc, &argv);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
@@ -96,12 +116,22 @@ int main(int argc, char **argv)
         visited[i] = false;
     }
 
-    dist[src] = 0;
-
-    for (int i = 0; i < n - 1; i++)
+    if (rank == 0)
     {
-        // n iterations lo, SSP has to be done
-        int minVertex = minDistance(dist, visited);
+        dist[src] = 0;
+        for (int i = 0; i < n - 1; i++)
+        {
+            // n iterations lo, SSP has to be done
+            minVertex = minDistance(dist, visited);
+            MPI_Bcast(&minVertex, 1, MPI_INT, 0, MPI_COMM_WORLD);
+            getMinVertex(A,col_size, minVertex);
+        }
+    }
+    else
+    {
+        // Got min vertex
+        MPI_Bcast(&minVertex, 1, MPI_INT, 0, MPI_COMM_WORLD);
+        getMinVertex(A, col_size, minVertex);
     }
 
     MPI_Barrier(MPI_COMM_WORLD);
