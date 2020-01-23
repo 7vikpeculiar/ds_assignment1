@@ -21,16 +21,6 @@ struct heapItem
 {
     int value;
     int pid;
-
-    // bool operator<(heapItem const &obj)
-    // {
-    //     heapItem res;
-    //     if (value <= obj.value)
-    //     {
-    //         return true;
-    //     }
-    //     return false;
-    // }
     heapItem(int value, int pid) : value(value), pid(pid) {}
 };
 
@@ -59,7 +49,7 @@ int main(int argc, char **argv)
     int A[100];
     MPI_Status status;
     int rank, numprocs;
-    int array_size;
+    int array_size, other_array_size;
 
     MPI_Init(&argc, &argv);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
@@ -67,7 +57,7 @@ int main(int argc, char **argv)
 
     if (rank == 0)
     {
-        n = 8;
+        n = 9;
         A[0] = 7;
         A[1] = -1;
         A[2] = 4;
@@ -76,14 +66,18 @@ int main(int argc, char **argv)
         A[5] = 0;
         A[6] = 6;
         A[7] = 1;
+        A[8] = 11;
         /////
-        array_size = n / numprocs;
+        /// 9 / 4 -> 9%4 = 1
         int procId = 0;
+        array_size = n / numprocs + n % numprocs;
+        other_array_size = n / numprocs;
         for (procId = 1; procId < numprocs; procId++)
         {
-            MPI_Send(&array_size, 1, MPI_INT, procId, 0, MPI_COMM_WORLD);
-            MPI_Send(&A[procId * array_size], array_size, MPI_INT, procId, 0, MPI_COMM_WORLD);
+            MPI_Send(&other_array_size, 1, MPI_INT, procId, 0, MPI_COMM_WORLD);
+            MPI_Send(&A[array_size + (procId-1) * other_array_size], other_array_size, MPI_INT, procId, 0, MPI_COMM_WORLD);
         }
+        
     }
     // /*synchronize all processes*/
     MPI_Barrier(MPI_COMM_WORLD);
@@ -100,7 +94,6 @@ int main(int argc, char **argv)
     if (rank != 0)
     {
         MPI_Send(&A, array_size, MPI_INT, 0, 2, MPI_COMM_WORLD);
-        cout << "Sent";
     }
 
     // MPI_Barrier(MPI_COMM_WORLD);
@@ -117,10 +110,10 @@ int main(int argc, char **argv)
 
         for (int procIde = 1; procIde < numprocs; procIde++)
         {
-            MPI_Recv(&B, array_size, MPI_INT, MPI_ANY_SOURCE, 2, MPI_COMM_WORLD, &status);
+            MPI_Recv(&B, other_array_size, MPI_INT, MPI_ANY_SOURCE, 2, MPI_COMM_WORLD, &status);
             int source_rank = status.MPI_SOURCE;
             vector<int> tmp;
-            for (int i = 0; i < array_size; i++)
+            for (int i = 0; i < other_array_size; i++)
             {
                 tmp.push_back(B[i]);
             }
@@ -128,12 +121,12 @@ int main(int argc, char **argv)
         }
 
         // Print Matrix
-        for (auto vec : sortedArray)
-        {
-            for (auto x : vec)
-                std::cout << x << " , ";
-            std::cout << std::endl;
-        }
+        // for (auto vec : sortedArray)
+        // {
+        //     for (auto x : vec)
+        //         std::cout << x << " , ";
+        //     std::cout << std::endl;
+        // }
 
         priority_queue<heapItem, vector<heapItem>, greater<heapItem>> heap;
         for (int i = 0; i < numprocs; i++)
@@ -159,7 +152,7 @@ int main(int argc, char **argv)
         while (!heap.empty())
         {
             heapItem temp = heap.top();
-            cout << "Popped :: " << temp.value << " " << temp.pid << endl;
+            cout << temp.value << " ";
             heap.pop();
 
             if (sortedArray[temp.pid].size() != 0)
@@ -179,7 +172,7 @@ int main(int argc, char **argv)
                 heap.push(heapItem(val, temp.pid));
             }
         }
-
+        cout << endl;
         // cout << "==================================" << endl;
         // for (auto vec : sortedArray)
         // {
@@ -188,7 +181,6 @@ int main(int argc, char **argv)
         //     std::cout << std::endl;
         // }
         // cout << "==================================" << endl;
-
     }
 
     MPI_Barrier(MPI_COMM_WORLD);
