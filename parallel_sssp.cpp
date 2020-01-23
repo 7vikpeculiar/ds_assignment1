@@ -8,6 +8,20 @@
 
 using namespace std;
 
+int minNode(int nporcs, int * allVertices)
+{
+    int vertex = INT_MAX; int dist = INT_MAX;
+    for(int i=0; i < nporcs; i++)
+    {
+        if(allVertices[i] < dist)
+        {
+            dist = allVertices[i];
+            vertex = i;
+        }
+    }
+    return vertex;
+}
+
 int main(int argc, char **argv)
 {
 
@@ -22,23 +36,27 @@ int main(int argc, char **argv)
     int n;
     int m;
     int col_size;
-    n = 4;
-    m = 5;
+    int src_vertex;
 
     MPI_Init(&argc, &argv);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
     double tbeg = MPI_Wtime();
 
-    MPI_Bcast(&m, 1, MPI_INT, 0, MPI_COMM_WORLD);
-    MPI_Bcast(&n, 1, MPI_INT, 0, MPI_COMM_WORLD);
     if (rank == 0)
     {
+        n = 4;
+        m = 5;
         col_size = n / numprocs;
     }
+    MPI_Bcast(&m, 1, MPI_INT, 0, MPI_COMM_WORLD);
+    MPI_Bcast(&n, 1, MPI_INT, 0, MPI_COMM_WORLD);
     MPI_Bcast(&col_size, 1, MPI_INT, 0, MPI_COMM_WORLD);
-    // cout << "Col_Size " << col_size << " ";
 
+    int dist[n];
+    bool visited[n];
+
+    // cout << "Col_Size " << col_size << " ";
     if (rank == 0)
     {
 
@@ -68,6 +86,23 @@ int main(int argc, char **argv)
         cout << endl;
     }
     cout << "======================\n";
+
+    // Got the pieces and now source vertex also
+    MPI_Bcast(&src_vertex, 1, MPI_INT, 0, MPI_COMM_WORLD);
+
+    for (int i = 0; i < n; i++)
+    {
+        dist[i] = INT_MAX;
+        visited[i] = false;
+    }
+
+    dist[src] = 0;
+
+    for (int i = 0; i < n - 1; i++)
+    {
+        // n iterations lo, SSP has to be done
+        int minVertex = minDistance(dist, visited);
+    }
 
     MPI_Barrier(MPI_COMM_WORLD);
     double elapsedTime = MPI_Wtime() - tbeg;
