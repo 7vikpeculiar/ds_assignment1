@@ -5,9 +5,10 @@
 #include <mpi.h>
 #include <stdlib.h>
 #include <queue>
+#include <fstream>
 
 using namespace std;
-
+long long int A[1000000];
 template <typename T>
 void pop_front(std::vector<T> &v)
 {
@@ -19,23 +20,16 @@ void pop_front(std::vector<T> &v)
 
 struct heapItem
 {
-    int value;
+    long long int value;
     int pid;
-    heapItem(int value, int pid) : value(value), pid(pid) {}
+    heapItem(long long int value, int pid) : value(value), pid(pid) {}
 };
 
 int cmpfunc(const void *a, const void *b)
 {
-    return (*(int *)a - *(int *)b);
+    return (*(long long int *)a - *(long long int *)b);
 }
 
-// struct compareHeap
-// { // defining the comparemarks structure
-//     bool operator()(heapItem const &p1, heapItem const &p2)
-//     {
-//         return p1.value < p2.value;
-//     }
-// };
 bool operator>(const heapItem &lhs, const heapItem &rhs)
 {
     return lhs.value > rhs.value;
@@ -43,65 +37,73 @@ bool operator>(const heapItem &lhs, const heapItem &rhs)
 
 int main(int argc, char **argv)
 {
-
-    // 7 -1 4 9 -8 0 6 1
-    int n;
-    int A[100];
-    MPI_Status status;
     int rank, numprocs;
-    int array_size, other_array_size;
-
     MPI_Init(&argc, &argv);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
+    // /*synchronize all processes*/
+    MPI_Barrier(MPI_COMM_WORLD);
+    double tbeg = MPI_Wtime();
+    // 7 -1 4 9 -8 0 6 1
+    long long int* B;
+    int n;
+    MPI_Status status;
+    int array_size, other_array_size;
+
+    ifstream inFile;
 
     if (rank == 0)
     {
-        n = 9;
-        A[0] = 7;
-        A[1] = -1;
-        A[2] = 4;
-        A[3] = 9;
-        A[4] = -8;
-        A[5] = 0;
-        A[6] = 6;
-        A[7] = 1;
-        A[8] = 11;
-        /////
-        /// 9 / 4 -> 9%4 = 1
+
+        // char f_input_name[100] = ""; //Storing File Path/Name of Image to Display
+        // char f_output_name[100] = ""; //Storing File Path/Name of Image to Display
+
+        inFile.open(argv[1]);
+        if (!inFile)
+        {
+            cerr << "Unable to open input file";
+            exit(1); // call system to stop
+        }
+        long long int x;
+        int index = 0;
+        while (inFile >> x)
+        {
+            A[index] = x;
+            index++;
+        }
+        n = index;
+        inFile.close();
+
         int procId = 0;
         array_size = n / numprocs + n % numprocs;
         other_array_size = n / numprocs;
         for (procId = 1; procId < numprocs; procId++)
         {
             MPI_Send(&other_array_size, 1, MPI_INT, procId, 0, MPI_COMM_WORLD);
-            MPI_Send(&A[array_size + (procId-1) * other_array_size], other_array_size, MPI_INT, procId, 0, MPI_COMM_WORLD);
+            MPI_Send(&A[array_size + (procId - 1) * other_array_size], other_array_size, MPI_LONG_LONG_INT, procId, 0, MPI_COMM_WORLD);
         }
-        
     }
-    // /*synchronize all processes*/
-    MPI_Barrier(MPI_COMM_WORLD);
-    double tbeg = MPI_Wtime();
     /* write your code here */
     if (rank != 0)
     {
         MPI_Recv(&array_size, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, &status);
-        MPI_Recv(&A, array_size, MPI_INT, 0, 0, MPI_COMM_WORLD, &status);
+        MPI_Recv(&A, array_size, MPI_LONG_LONG_INT, 0, 0, MPI_COMM_WORLD, &status);
     }
+
     // All do QS
-    qsort(A, array_size, sizeof(int), cmpfunc);
+    qsort(A, array_size, sizeof(long long int), cmpfunc);
 
     if (rank != 0)
     {
-        MPI_Send(&A, array_size, MPI_INT, 0, 2, MPI_COMM_WORLD);
+        MPI_Send(&A, array_size, MPI_LONG_LONG_INT, 0, 2, MPI_COMM_WORLD);
     }
 
     // MPI_Barrier(MPI_COMM_WORLD);
     if (rank == 0)
     {
-        int B[100];
-        vector<vector<int>> sortedArray(numprocs);
-        vector<int> tmp;
+        long long int B[10000];
+        vector<vector<long long int>> sortedArray(numprocs);
+        vector<long long int> tmp;
         for (int i = 0; i < array_size; i++)
         {
             tmp.push_back(A[i]);
@@ -110,9 +112,9 @@ int main(int argc, char **argv)
 
         for (int procIde = 1; procIde < numprocs; procIde++)
         {
-            MPI_Recv(&B, other_array_size, MPI_INT, MPI_ANY_SOURCE, 2, MPI_COMM_WORLD, &status);
+            MPI_Recv(&B, other_array_size, MPI_LONG_LONG_INT, MPI_ANY_SOURCE, 2, MPI_COMM_WORLD, &status);
             int source_rank = status.MPI_SOURCE;
-            vector<int> tmp;
+            vector<long long int> tmp;
             for (int i = 0; i < other_array_size; i++)
             {
                 tmp.push_back(B[i]);
@@ -120,67 +122,33 @@ int main(int argc, char **argv)
             sortedArray[source_rank] = tmp;
         }
 
-        // Print Matrix
-        // for (auto vec : sortedArray)
-        // {
-        //     for (auto x : vec)
-        //         std::cout << x << " , ";
-        //     std::cout << std::endl;
-        // }
-
         priority_queue<heapItem, vector<heapItem>, greater<heapItem>> heap;
         for (int i = 0; i < numprocs; i++)
         {
             heap.push(heapItem(sortedArray[i][0], i));
             pop_front(sortedArray[i]);
-            // if (sortedArray[i].size() != 0)
-            // {                                                 //check if there any elements in the vector array
-            //     sortedArray[i].erase(sortedArray[i].begin()); //erase the firs element
-            // }
         }
 
-        // cout << "==================================" << endl;
-        // for (auto vec : sortedArray)
-        // {
-        //     for (auto x : vec)
-        //         std::cout << x << " , ";
-        //     std::cout << std::endl;
-        // }
-        // cout << "==================================" << endl;
+        long long int val;
 
-        int val;
+        ofstream outfile;
+        outfile.open(argv[2]);
+
         while (!heap.empty())
         {
             heapItem temp = heap.top();
-            cout << temp.value << " ";
+            outfile << temp.value << " ";
             heap.pop();
 
             if (sortedArray[temp.pid].size() != 0)
             {
                 val = sortedArray[temp.pid][0];
                 pop_front(sortedArray[temp.pid]);
-                // cout << "Val :: " << val << " " << temp.pid << endl;
-                // cout << "==================================" << endl;
-                // for (auto vec : sortedArray)
-                // {
-                //     for (auto x : vec)
-                //         std::cout << x << " , ";
-                //     std::cout << std::endl;
-                // }
-                // cout << "==================================" << endl;
 
                 heap.push(heapItem(val, temp.pid));
             }
         }
-        cout << endl;
-        // cout << "==================================" << endl;
-        // for (auto vec : sortedArray)
-        // {
-        //     for (auto x : vec)
-        //         std::cout << x << " , ";
-        //     std::cout << std::endl;
-        // }
-        // cout << "==================================" << endl;
+        outfile.close();
     }
 
     MPI_Barrier(MPI_COMM_WORLD);
